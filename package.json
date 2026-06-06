@@ -1,0 +1,39 @@
+{
+  "name": "saman-digital",
+  "version": "1.0.0",
+  "description": "Sistema de gestión integral para reparación de teléfonos y venta de accesorios.",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "seed": "tsx scripts/seed.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.x",
+    "bcryptjs": "^2.4.3",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.395.0",
+    "next": "^15.0.0",
+    "next-auth": "5.0.0-beta.20",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "tailwind-merge": "^2.3.0",
+    "tailwindcss-animate": "^1.0.7",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/node": "^20.x",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "eslint": "^8.x",
+    "eslint-config-next": "15.0.0",
+    "postcss": "^8.4.38",
+    "prisma": "^5.x",
+    "tailwindcss": "^3.4.4",
+    "tsx": "^4.16.2",
+    "typescript": "^5.x"
+  }
+}
