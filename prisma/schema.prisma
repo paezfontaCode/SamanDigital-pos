@@ -1,0 +1,427 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// -------------------------------------------------------------
+// ENUMS
+// -------------------------------------------------------------
+// Note: SQLite no soporta enums nativos, Prisma los emula o podemos usar Strings con validación.
+// En este caso, usaremos String simple para evitar complicaciones con SQLite, pero
+// aplicaremos validación a nivel de aplicación (Zod).
+
+// -------------------------------------------------------------
+// 1. USUARIOS Y ROLES
+// -------------------------------------------------------------
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      String   // "ADMIN", "VENDEDOR", "TECNICO"
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relaciones
+  salesCreated        Sale[]              @relation("SalesCreated")
+  ticketsCreated      Ticket[]            @relation("TicketsCreated")
+  ticketsAssigned     Ticket[]            @relation("TicketsAssigned")
+  openedCashRegisters CashRegister[]
+  cashMovements       CashMovement[]
+  inventoryMovements  InventoryMovement[]
+  auditLogs           AuditLog[]
+}
+
+// -------------------------------------------------------------
+// 2. CLIENTES Y PROVEEDORES
+// -------------------------------------------------------------
+model Client {
+  id           String   @id @default(cuid())
+  document     String?  @unique // V-12345678, J-123456789
+  name         String
+  phone        String
+  email        String?
+  address      String?
+  creditLimit  Float    @default(0) // Límite de crédito asignado
+  debtBalance  Float    @default(0) // Saldo adeudado actual
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relaciones
+  sales              Sale[]
+  tickets            Ticket[]
+  accountsReceivable AccountReceivable[]
+  warranties         Warranty[]
+}
+
+model Supplier {
+  id        String   @id @default(cuid())
+  document  String?  @unique
+  name      String
+  contact   String?
+  phone     String?
+  email     String?
+  address   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relaciones
+  products          Product[]
+  accountsPayable   AccountPayable[]
+}
+
+// -------------------------------------------------------------
+// 3. INVENTARIO (Accesorios y Repuestos)
+// -------------------------------------------------------------
+model ProductCategory {
+  id          String    @id @default(cuid())
+  name        String    @unique
+  description String?
+  type        String    // "ACCESORIO", "REPUESTO", "SERVICIO"
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  products    Product[]
+}
+
+model Product {
+  id            String   @id @default(cuid())
+  barcode       String?  @unique
+  name          String
+  description   String?
+  type          String   // "ACCESORIO", "REPUESTO", "SERVICIO_MANO_OBRA"
+  
+  costPrice     Float    // Costo de compra
+  sellPrice     Float    // Precio de venta
+  
+  stock         Int      @default(0)
+  minStock      Int      @default(5)
+  
+  categoryId    String
+  category      ProductCategory @relation(fields: [categoryId], references: [id])
+  
+  supplierId    String?
+  supplier      Supplier?       @relation(fields: [supplierId], references: [id])
+
+  isDeleted     Boolean  @default(false)
+  deletedAt     DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relaciones
+  movements     InventoryMovement[]
+  saleItems     SaleItem[]
+  ticketItems   TicketItem[]
+}
+
+model InventoryMovement {
+  id          String   @id @default(cuid())
+  type        String   // "IN", "OUT", "ADJUST", "RETURN"
+  quantity    Int
+  reason      String?  // Razón del ajuste manual
+  
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id])
+  
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  
+  referenceId String?  // ID de Venta, Ticket o Compra que generó el movimiento
+
+  createdAt   DateTime @default(now())
+}
+
+// -------------------------------------------------------------
+// 4. VENTAS DIRECTAS (POS)
+// -------------------------------------------------------------
+model Sale {
+  id             String   @id @default(cuid())
+  number         String   @unique // Ej: V-20231015-001
+  status         String   // "COMPLETED", "CREDIT", "CANCELLED"
+  
+  subtotal       Float
+  tax            Float    @default(0)
+  discount       Float    @default(0)
+  total          Float
+  
+  paymentMethod  String   // "CASH", "CARD", "TRANSFER", "CREDIT", "MIXED"
+  
+  clientId       String?
+  client         Client?  @relation(fields: [clientId], references: [id])
+  
+  userId         String
+  user           User     @relation("SalesCreated", fields: [userId], references: [id])
+  
+  cashRegisterId String?
+  cashRegister   CashRegister? @relation(fields: [cashRegisterId], references: [id])
+
+  isDeleted      Boolean  @default(false)
+  deletedAt      DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relaciones
+  items          SaleItem[]
+  payments       Payment[]  @relation("SalePayments")
+}
+
+model SaleItem {
+  id        String  @id @default(cuid())
+  quantity  Int
+  price     Float   // Precio unitario al momento de la venta
+  subtotal  Float
+  
+  saleId    String
+  sale      Sale    @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+}
+
+// -------------------------------------------------------------
+// 5. SERVICIOS TÉCNICOS (TICKETS)
+// -------------------------------------------------------------
+model Ticket {
+  id             String   @id @default(cuid())
+  number         String   @unique // Ej: TK-20231015-001
+  
+  // Datos del equipo
+  deviceBrand    String
+  deviceModel    String
+  deviceSerial   String?
+  devicePassword String?
+  
+  issue          String   // Falla reportada
+  notes          String?  // Diagnóstico / Notas internas
+  
+  status         String   // "PENDING", "IN_PROGRESS", "READY", "DELIVERED", "CANCELLED", "WARRANTY"
+  
+  estimatedCost  Float    @default(0)
+  finalCost      Float    @default(0)
+  amountPaid     Float    @default(0)
+  
+  // Fotos (Rutas a los archivos)
+  photos         String?  // JSON string con URLs
+  
+  clientId       String
+  client         Client   @relation(fields: [clientId], references: [id])
+  
+  createdById    String
+  createdBy      User     @relation("TicketsCreated", fields: [createdById], references: [id])
+  
+  technicianId   String?
+  technician     User?    @relation("TicketsAssigned", fields: [technicianId], references: [id])
+
+  cashRegisterId String?
+  cashRegister   CashRegister? @relation(fields: [cashRegisterId], references: [id])
+
+  isDeleted      Boolean  @default(false)
+  deletedAt      DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  deliveredAt    DateTime?
+
+  // Relaciones
+  items          TicketItem[]
+  warranties     Warranty[]
+  payments       Payment[] @relation("TicketPayments")
+}
+
+model TicketItem {
+  id          String   @id @default(cuid())
+  quantity    Int
+  price       Float    // Precio unitario
+  subtotal    Float
+  
+  ticketId    String
+  ticket      Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  
+  productId   String   // Accesorio, Repuesto o Servicio de Mano de Obra
+  product     Product  @relation(fields: [productId], references: [id])
+}
+
+// -------------------------------------------------------------
+// 6. CAJA Y FINANZAS
+// -------------------------------------------------------------
+model CashRegister {
+  id           String   @id @default(cuid())
+  openedAt     DateTime @default(now())
+  closedAt     DateTime?
+  status       String   // "OPEN", "CLOSED"
+  
+  openingBalance Float
+  closingBalance Float?
+  expectedBalance Float?
+  difference     Float?
+  notes          String?
+  
+  openedById   String
+  openedBy     User     @relation(fields: [openedById], references: [id])
+
+  // Relaciones
+  movements    CashMovement[]
+  sales        Sale[]
+  tickets      Ticket[]
+}
+
+model CashMovement {
+  id             String   @id @default(cuid())
+  type           String   // "INCOME", "EXPENSE"
+  category       String   // "SALE", "TICKET", "PAYMENT", "SALARY", "SUPPLIES", "WITHDRAWAL", "OTHER"
+  amount         Float
+  description    String
+  
+  cashRegisterId String
+  cashRegister   CashRegister @relation(fields: [cashRegisterId], references: [id])
+  
+  userId         String
+  user           User         @relation(fields: [userId], references: [id])
+  
+  referenceId    String?      // ID de Venta, Ticket o Pago asociado
+
+  createdAt      DateTime @default(now())
+}
+
+// -------------------------------------------------------------
+// 7. CUENTAS POR COBRAR / PAGAR Y PAGOS
+// -------------------------------------------------------------
+model AccountReceivable {
+  id           String   @id @default(cuid())
+  amount       Float
+  balance      Float    // Saldo pendiente
+  status       String   // "PENDING", "PARTIAL", "PAID"
+  dueDate      DateTime?
+  
+  referenceType String  // "SALE", "TICKET"
+  referenceId   String  // ID de la venta o ticket
+  
+  clientId     String
+  client       Client   @relation(fields: [clientId], references: [id])
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  payments     Payment[] @relation("ARPayments")
+}
+
+model AccountPayable {
+  id           String   @id @default(cuid())
+  amount       Float
+  balance      Float    // Saldo pendiente
+  status       String   // "PENDING", "PARTIAL", "PAID"
+  dueDate      DateTime?
+  description  String
+  
+  supplierId   String
+  supplier     Supplier @relation(fields: [supplierId], references: [id])
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  payments     Payment[] @relation("APPayments")
+}
+
+model Payment {
+  id             String   @id @default(cuid())
+  amount         Float
+  method         String   // "CASH", "CARD", "TRANSFER"
+  reference      String?  // Nro de referencia transferencia
+  
+  // Puede estar asociado a una de estas entidades
+  saleId         String?
+  sale           Sale?    @relation("SalePayments", fields: [saleId], references: [id])
+  
+  ticketId       String?
+  ticket         Ticket?  @relation("TicketPayments", fields: [ticketId], references: [id])
+  
+  arId           String?
+  accountReceivable AccountReceivable? @relation("ARPayments", fields: [arId], references: [id])
+  
+  apId           String?
+  accountPayable AccountPayable? @relation("APPayments", fields: [apId], references: [id])
+
+  createdAt      DateTime @default(now())
+}
+
+// -------------------------------------------------------------
+// 8. GARANTÍAS
+// -------------------------------------------------------------
+model Warranty {
+  id           String   @id @default(cuid())
+  startDate    DateTime
+  endDate      DateTime
+  status       String   // "ACTIVE", "EXPIRED", "VOIDED"
+  
+  ticketId     String
+  ticket       Ticket   @relation(fields: [ticketId], references: [id])
+  
+  clientId     String
+  client       Client   @relation(fields: [clientId], references: [id])
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  claims       WarrantyClaim[]
+}
+
+model WarrantyClaim {
+  id           String   @id @default(cuid())
+  date         DateTime @default(now())
+  issue        String
+  resolution   String?  // "REPAIRED", "REPLACED", "REJECTED"
+  status       String   // "PENDING", "RESOLVED"
+  
+  warrantyId   String
+  warranty     Warranty @relation(fields: [warrantyId], references: [id])
+  
+  newTicketId  String?  // Si genera un nuevo ticket de reparación
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+// -------------------------------------------------------------
+// 9. CONFIGURACIÓN Y AUDITORÍA
+// -------------------------------------------------------------
+model BusinessConfig {
+  id           String   @id @default("1")
+  key          String   @unique
+  value        String   // Almacenado como JSON string si es complejo
+  description  String?
+  updatedAt    DateTime @updatedAt
+}
+
+model Notification {
+  id           String   @id @default(cuid())
+  type         String   // "LOW_STOCK", "WARRANTY_EXPIRING", "TICKET_READY", "DEBT_OVERDUE"
+  title        String
+  message      String
+  isRead       Boolean  @default(false)
+  
+  targetRole   String?  // "ADMIN", "VENDEDOR", "TECNICO" o null si es para usuario específico
+  targetUserId String?  // ID del usuario si es directo
+  
+  referenceType String? // Ej: "PRODUCT", "TICKET", "CLIENT"
+  referenceId   String?
+  
+  createdAt    DateTime @default(now())
+}
+
+model AuditLog {
+  id           String   @id @default(cuid())
+  action       String   // "CREATE", "UPDATE", "DELETE", "LOGIN"
+  entity       String   // Nombre de la tabla afectada
+  entityId     String?
+  details      String   // JSON string con los cambios
+  
+  userId       String?
+  user         User?    @relation(fields: [userId], references: [id])
+  
+  ipAddress    String?
+  createdAt    DateTime @default(now())
+}
