@@ -12,14 +12,16 @@ import {
   Settings,
   LogOut,
   ShieldAlert,
-  FileText
+  FileText,
+  AlertCircle
 } from "lucide-react";
 
 interface SidebarProps {
   role: string;
+  lowStockCount?: number;
 }
 
-export default function Sidebar({ role }: SidebarProps) {
+export default function Sidebar({ role, lowStockCount = 0 }: SidebarProps) {
   const pathname = usePathname();
 
   const getLinks = () => {
@@ -27,7 +29,12 @@ export default function Sidebar({ role }: SidebarProps) {
       case "ADMIN":
         return [
           { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
-          { href: "/inventario/accesorios", label: "Inventario", icon: Package },
+          { 
+            href: "/inventario/accesorios", 
+            label: "Inventario", 
+            icon: Package,
+            badge: lowStockCount > 0 ? lowStockCount : undefined
+          },
           { href: "/servicios/tickets", label: "Reparaciones", icon: Wrench },
           { href: "/finanzas/caja", label: "Finanzas", icon: DollarSign },
           { href: "/clientes", label: "Clientes", icon: Users },
@@ -37,8 +44,13 @@ export default function Sidebar({ role }: SidebarProps) {
         ];
       case "VENDEDOR":
         return [
-          { href: "/vendedor", label: "POS / Venta", icon: LayoutDashboard },
-          { href: "/inventario/accesorios", label: "Inventario", icon: Package },
+          { href: "/vendedor/pos", label: "POS / Venta", icon: LayoutDashboard },
+          { 
+            href: "/inventario/accesorios", 
+            label: "Inventario", 
+            icon: Package,
+            badge: lowStockCount > 0 ? lowStockCount : undefined
+          },
           { href: "/servicios/tickets", label: "Tickets", icon: Wrench },
           { href: "/finanzas/caja", label: "Caja Diaria", icon: DollarSign },
           { href: "/clientes", label: "Clientes", icon: Users },
@@ -48,7 +60,12 @@ export default function Sidebar({ role }: SidebarProps) {
         return [
           { href: "/tecnico", label: "Mis Reparaciones", icon: LayoutDashboard },
           { href: "/servicios/tickets", label: "Tickets", icon: Wrench },
-          { href: "/inventario/repuestos", label: "Repuestos", icon: Package },
+          { 
+            href: "/inventario/repuestos", 
+            label: "Repuestos", 
+            icon: Package,
+            badge: lowStockCount > 0 ? lowStockCount : undefined
+          },
         ];
       default:
         return [];
@@ -75,12 +92,20 @@ export default function Sidebar({ role }: SidebarProps) {
                 key={link.href}
                 href={link.href}
                 className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2 transition-all hover:text-primary",
+                  "flex items-center justify-between gap-3 rounded-lg px-3 py-2 transition-all hover:text-primary",
                   isActive ? "bg-muted text-primary" : "text-muted-foreground"
                 )}
               >
-                <Icon className="h-4 w-4" />
-                {link.label}
+                <div className="flex items-center gap-3">
+                  <Icon className="h-4 w-4" />
+                  {link.label}
+                </div>
+                {link.badge && (
+                  <span className="flex items-center justify-center rounded-full bg-red-500 px-2 py-0.5 text-xs font-bold text-white">
+                    <AlertCircle className="mr-1 h-3 w-3" />
+                    {link.badge}
+                  </span>
+                )}
               </Link>
             );
           })}
