@@ -8,11 +8,9 @@ datasource db {
 }
 
 // -------------------------------------------------------------
-// ENUMS
+// ENUMS (como String para SQLite - validación con Zod)
 // -------------------------------------------------------------
-// Note: SQLite no soporta enums nativos, Prisma los emula o podemos usar Strings con validación.
-// En este caso, usaremos String simple para evitar complicaciones con SQLite, pero
-// aplicaremos validación a nivel de aplicación (Zod).
+// Nota: SQLite no soporta enums nativos, usamos String con validación Zod
 
 // -------------------------------------------------------------
 // 1. USUARIOS Y ROLES
@@ -35,6 +33,10 @@ model User {
   cashMovements       CashMovement[]
   inventoryMovements  InventoryMovement[]
   auditLogs           AuditLog[]
+  notifications       Notification[]      @relation("TargetUserNotifications")
+
+  @@index([email])
+  @@index([role])
 }
 
 // -------------------------------------------------------------
@@ -57,6 +59,9 @@ model Client {
   tickets            Ticket[]
   accountsReceivable AccountReceivable[]
   warranties         Warranty[]
+
+  @@index([document])
+  @@index([phone])
 }
 
 model Supplier {
@@ -73,6 +78,8 @@ model Supplier {
   // Relaciones
   products          Product[]
   accountsPayable   AccountPayable[]
+
+  @@index([document])
 }
 
 // -------------------------------------------------------------
@@ -87,6 +94,8 @@ model ProductCategory {
   updatedAt   DateTime  @updatedAt
 
   products    Product[]
+
+  @@index([type])
 }
 
 model Product {
@@ -98,9 +107,13 @@ model Product {
   
   costPrice     Float    // Costo de compra
   sellPrice     Float    // Precio de venta
+  technicianPrice Float? // Precio especial para técnicos
   
   stock         Int      @default(0)
   minStock      Int      @default(5)
+  
+  compatibleModels String? // Modelos compatibles (JSON string)
+  restockTime   String?   // Tiempo estimado de reabastecimiento
   
   categoryId    String
   category      ProductCategory @relation(fields: [categoryId], references: [id])
@@ -117,6 +130,10 @@ model Product {
   movements     InventoryMovement[]
   saleItems     SaleItem[]
   ticketItems   TicketItem[]
+
+  @@index([barcode])
+  @@index([categoryId])
+  @@index([type])
 }
 
 model InventoryMovement {
@@ -134,6 +151,10 @@ model InventoryMovement {
   referenceId String?  // ID de Venta, Ticket o Compra que generó el movimiento
 
   createdAt   DateTime @default(now())
+
+  @@index([productId])
+  @@index([userId])
+  @@index([type])
 }
 
 // -------------------------------------------------------------
@@ -168,6 +189,11 @@ model Sale {
   // Relaciones
   items          SaleItem[]
   payments       Payment[]  @relation("SalePayments")
+
+  @@index([number])
+  @@index([status])
+  @@index([clientId])
+  @@index([userId])
 }
 
 model SaleItem {
@@ -181,6 +207,9 @@ model SaleItem {
   
   productId String
   product   Product @relation(fields: [productId], references: [id])
+
+  @@index([saleId])
+  @@index([productId])
 }
 
 // -------------------------------------------------------------
@@ -199,11 +228,18 @@ model Ticket {
   issue          String   // Falla reportada
   notes          String?  // Diagnóstico / Notas internas
   
+  problemType    String?  // Tipo de problema: "PANTALLA", "BATERIA", "SOFTWARE", etc.
+  isWarrantyService Boolean @default(false) // ¿Es servicio por garantía?
+  relatedTicketId String? // ID del ticket original si es garantía
+  
   status         String   // "PENDING", "IN_PROGRESS", "READY", "DELIVERED", "CANCELLED", "WARRANTY"
+  queuePosition  Int?     // Posición en cola de espera
   
   estimatedCost  Float    @default(0)
   finalCost      Float    @default(0)
   amountPaid     Float    @default(0)
+  
+  warrantyExpiry DateTime? // Fecha de vencimiento de garantía
   
   // Fotos (Rutas a los archivos)
   photos         String?  // JSON string con URLs
@@ -230,6 +266,12 @@ model Ticket {
   items          TicketItem[]
   warranties     Warranty[]
   payments       Payment[] @relation("TicketPayments")
+
+  @@index([number])
+  @@index([status])
+  @@index([clientId])
+  @@index([technicianId])
+  @@index([createdById])
 }
 
 model TicketItem {
@@ -243,6 +285,9 @@ model TicketItem {
   
   productId   String   // Accesorio, Repuesto o Servicio de Mano de Obra
   product     Product  @relation(fields: [productId], references: [id])
+
+  @@index([ticketId])
+  @@index([productId])
 }
 
 // -------------------------------------------------------------
@@ -267,6 +312,9 @@ model CashRegister {
   movements    CashMovement[]
   sales        Sale[]
   tickets      Ticket[]
+
+  @@index([status])
+  @@index([openedById])
 }
 
 model CashMovement {
@@ -285,6 +333,10 @@ model CashMovement {
   referenceId    String?      // ID de Venta, Ticket o Pago asociado
 
   createdAt      DateTime @default(now())
+
+  @@index([cashRegisterId])
+  @@index([userId])
+  @@index([type])
 }
 
 // -------------------------------------------------------------
@@ -307,6 +359,9 @@ model AccountReceivable {
   updatedAt    DateTime @updatedAt
 
   payments     Payment[] @relation("ARPayments")
+
+  @@index([clientId])
+  @@index([status])
 }
 
 model AccountPayable {
@@ -324,6 +379,9 @@ model AccountPayable {
   updatedAt    DateTime @updatedAt
 
   payments     Payment[] @relation("APPayments")
+
+  @@index([supplierId])
+  @@index([status])
 }
 
 model Payment {
@@ -346,6 +404,11 @@ model Payment {
   accountPayable AccountPayable? @relation("APPayments", fields: [apId], references: [id])
 
   createdAt      DateTime @default(now())
+
+  @@index([saleId])
+  @@index([ticketId])
+  @@index([arId])
+  @@index([apId])
 }
 
 // -------------------------------------------------------------
@@ -357,6 +420,9 @@ model Warranty {
   endDate      DateTime
   status       String   // "ACTIVE", "EXPIRED", "VOIDED"
   
+  conditions   String?  // Condiciones de la garantía
+  isScreenReplacement Boolean @default(false) // ¿Es reemplazo de pantalla?
+  
   ticketId     String
   ticket       Ticket   @relation(fields: [ticketId], references: [id])
   
@@ -367,6 +433,10 @@ model Warranty {
   updatedAt    DateTime @updatedAt
 
   claims       WarrantyClaim[]
+
+  @@index([ticketId])
+  @@index([clientId])
+  @@index([status])
 }
 
 model WarrantyClaim {
@@ -383,6 +453,9 @@ model WarrantyClaim {
   
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+
+  @@index([warrantyId])
+  @@index([status])
 }
 
 // -------------------------------------------------------------
@@ -402,6 +475,7 @@ model Notification {
   title        String
   message      String
   isRead       Boolean  @default(false)
+  scheduledFor DateTime? // Programada para
   
   targetRole   String?  // "ADMIN", "VENDEDOR", "TECNICO" o null si es para usuario específico
   targetUserId String?  // ID del usuario si es directo
@@ -410,6 +484,11 @@ model Notification {
   referenceId   String?
   
   createdAt    DateTime @default(now())
+
+  @@index([isRead])
+  @@index([targetRole])
+  @@index([targetUserId])
+  @@index([type])
 }
 
 model AuditLog {
@@ -424,4 +503,9 @@ model AuditLog {
   
   ipAddress    String?
   createdAt    DateTime @default(now())
+
+  @@index([action])
+  @@index([entity])
+  @@index([userId])
+  @@index([createdAt])
 }
