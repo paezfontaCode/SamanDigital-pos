@@ -48,3 +48,6 @@ next-env.d.ts
 # Agregar al repositorio
 git add .gitignore
 git commit -m "chore: restore .gitignore file"
+
+# Scripts locales de automatización
+git_sync.py
