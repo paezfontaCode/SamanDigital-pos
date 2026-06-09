@@ -56,4 +56,115 @@
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* ============================================================
+   ESTILOS DE IMPRESIÓN TÉRMICA
+   ============================================================ */
+@media print {
+  /* Ocultar todo excepto el contenido a imprimir */
+  body * {
+    visibility: hidden;
+  }
+  
+  .print-area,
+  .print-area * {
+    visibility: visible;
+  }
+  
+  .print-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 80mm; /* Ancho térmica estándar */
+    padding: 0;
+    margin: 0;
+  }
+  
+  /* Formatos específicos */
+  .print-thermal-80mm {
+    width: 80mm;
+  }
+  
+  .print-thermal-58mm {
+    width: 58mm;
+  }
+  
+  .print-a4 {
+    width: 210mm;
+  }
+  
+  /* Optimizaciones para térmica */
+  .print-area {
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    color: black;
+    background: white;
+    line-height: 1.4;
+  }
+  
+  .print-area h1 {
+    font-size: 16px;
+    text-align: center;
+    margin: 0 0 8px 0;
+    font-weight: bold;
+  }
+  
+  .print-area h2 {
+    font-size: 14px;
+    text-align: center;
+    margin: 4px 0;
+  }
+  
+  .print-area p {
+    margin: 4px 0;
+    font-size: 11px;
+  }
+  
+  .print-area table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 4px 0;
+  }
+  
+  .print-area th,
+  .print-area td {
+    text-align: left;
+    padding: 2px 0;
+    border-bottom: 1px dotted #ccc;
+  }
+  
+  .print-area th {
+    font-weight: bold;
+  }
+  
+  .print-area .text-right {
+    text-align: right;
+  }
+  
+  .print-area .text-center {
+    text-align: center;
+  }
+  
+  .print-area .separator {
+    border-top: 1px dashed black;
+    margin: 8px 0;
+  }
+  
+  .print-area .total-row {
+    font-weight: bold;
+    font-size: 13px;
+    border-top: 2px solid black;
+    padding-top: 4px;
+  }
+  
+  /* Asegurar que no haya saltos de página indeseados */
+  .print-area .no-break {
+    page-break-inside: avoid;
+  }
+  
+  @page {
+    size: 80mm auto;
+    margin: 0;
+  }
 }   
