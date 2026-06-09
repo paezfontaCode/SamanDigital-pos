@@ -1,53 +1,72 @@
-# Crear .gitignore si no existe
-@"
-# dependencies
-/node_modules
-/.pnp
-.pnp.js
+```
+# Dependencies
+node_modules/
 
-# testing
-/coverage
+# Build outputs
+dist/
+build/
+target/
 
-# next.js
-/.next/
-/out/
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+.ENV
+.ENV.*
+.venv.bak/
+.venv*/
+venv*/
+.envrc
 
-# production
-/build
-
-# misc
-.DS_Store
-*.pem
-
-# debug
+# Logs
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# local env files
-.env*.local
-.env
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
 
-# vercel
-.vercel
-
-# typescript
-*.tsbuildinfo
-next-env.d.ts
-
-# Prisma
-/prisma/*.db
-/prisma/*.db-journal
-
-# IDE
-.vscode
-.idea
+# IDE specific
+.vscode/
+.idea/
 *.swp
-"@ | Out-File -FilePath ".gitignore" -Encoding UTF8
+*.swo
+*~
 
-# Agregar al repositorio
-git add .gitignore
-git commit -m "chore: restore .gitignore file"
+# Coverage
+coverage/
+htmlcov/
+.coverage
+*.coverage
 
-# Scripts locales de automatización
-git_sync.py
+# Temporary files
+*.tmp
+*.temp
+.DS_Store
+Thumbs.db
+
+# Environment variables
+.env
+.env.local
+.env.*
+!.env.example
+
+# Cache directories
+.cache/
+.mypy_cache/
+.pytest_cache/
+.nyc_output/
+coverage/
+```
